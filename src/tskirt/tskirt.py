@@ -5,61 +5,8 @@ THETA_BOUND = 10.0
 
 import numpy as np
 import scipy as sp
-from enum import Enum
-        
 
-class QuestionType(Enum):
-	MULTIPLE_CHOICE = 0
-	TRUE_OR_FALSE = 1
-	FILL_IN_THE_BLANK = 2
-	FLASHCARD = 3
-
-	def guess_floor(self):
-		# Each activity types has a guess_floor parameter (the chance of getting a question
-		# right by guessing). In the 3PL-style IRT formula used in `neg_log_likelihood`.
-		if self == QuestionType.MULTIPLE_CHOICE: 		return 0.25
-		elif self == QuestionType.TRUE_OR_FALSE: 		return 0.5
-		elif self == QuestionType.FILL_IN_THE_BLANK: 	return 0.0
-		elif self == QuestionType.FLASHCARD: 			return 0.0
-		else: raise ValueError("Unknown question type: {}".format(self))
-
-
-all_questions: dict[int, dict[QuestionType, list["Question"]]] = {}  # all possible questions
-
-
-class Concept:
-    def __init__(self, name: str, id: int):
-        self.name = name
-        self.id = id
-
-
-class Question:
-	def __init__(self, concept_id: int, question_type: QuestionType, difficulty: float):
-		# concept_id, not a Concept object: Question only needs to know WHICH concept it
-		# belongs to, not the concept's full state -- this also breaks what would otherwise
-		# be a circular class reference (Concept -> Question -> Concept).
-		self.concept_id = concept_id
-		self.question_type = question_type
-		self.difficulty = difficulty
-
-
-class Answer:
-	def __init__(self, correct: bool):
-		self.correct = correct
-
-
-class QuestionAnswer:
-    def __init__(self, question: Question, answer: Answer, time_since_last: float = 0.0):
-        self.question = question
-        self.answer = answer
-        self.time_since_last_question = time_since_last
-
-
-class Student:
-    def __init__(self, id: int):
-        self.id = id
-        self.history: list[QuestionAnswer] = []
-        self.theta_by_concept: dict[int, np.ndarray] = {}  # concept_id -> fitted theta array
+from structures.structures import *
 
 
 def sigma_by_T(T: int) -> float:
@@ -74,25 +21,25 @@ def sigma_by_T(T: int) -> float:
         return 5.52289 * (T ** -0.72580)  # power-law fit from sigma_vs_T.py
 
 
-def responses_for_concept(student: Student, concept_id: int) -> list[QuestionAnswer]:
+def responses_for_concept(area: Area, concept: Concept) -> list[QuestionAnswer]:
     # Return the student's history filtered to only responses for the given concept.
-    return [qa for qa in student.history if qa.question.concept_id == concept_id]
+    return [qa for qa in area.history if qa.question.concept == concept]
 
 
-def fit_all_concepts(student: Student, sigma=None, lambda_forget=LAMBDA_FORGET) -> dict[int, np.ndarray]:
+def fit_all_concepts(area: Area, sigma=None, lambda_forget=LAMBDA_FORGET) -> dict[Concept, np.ndarray]:
     # Concepts are independent (see neg_log_prior/[[project_tskirt_model]]: no
     # cross-concept correlation term), so this is just fit_MAP looped once per
     # concept -- no joint optimization needed. Pure function, like
-    # responses_for_concept: returns a new dict rather than mutating student
+    # responses_for_concept: returns a new dict rather than mutating the area
     # in place, so the caller decides whether/how to store it (e.g.
-    # student.theta_by_concept = fit_all_concepts(student)).
-    concept_ids = {qa.question.concept_id for qa in student.history}
+    # area.theta_by_concept = fit_all_concepts(area)).
+    concepts = {qa.question.concept for qa in area.history}
 
     theta_by_concept = {}
-    for concept_id in concept_ids:
-        qas = responses_for_concept(student, concept_id)
+    for concept in concepts:
+        qas = responses_for_concept(area, concept)
         result = fit_MAP(qas, sigma=sigma, lambda_forget=lambda_forget)
-        theta_by_concept[concept_id] = result.x
+        theta_by_concept[concept] = result.x
 
     return theta_by_concept
 
@@ -215,11 +162,13 @@ def fit_MAP(qas, sigma=None, theta0=None, lambda_forget=0.0):
     # Neutral starting guess (average proficiency) if the caller doesn't supply one.
     if theta0 is None:
         theta0 = np.zeros(len(qas))
+    
     # Empirically-tuned default (see sigma_by_T / experiments/sigma_vs_T.py) if the
     # caller doesn't supply one -- callers that need to test/override a specific value
     # (e.g. the sigma_vs_T experiment itself) still can by passing sigma explicitly.
     if sigma is None:
         sigma = sigma_by_T(len(qas)) # where len(qas) is the number of question-answer events.
+    
     # sp.optimize.minimize(objective, x0, jac, args, method), where:
     #   neg_log_posterior       objective being minimized; scipy calls this repeatedly
     #   theta0                  x0, the starting guess -- also the value scipy is allowed to vary

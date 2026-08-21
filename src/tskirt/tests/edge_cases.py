@@ -11,21 +11,17 @@
 
 import numpy as np
 
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from tskirt import (
-    QuestionType, Question, Answer, QuestionAnswer, Student,
-    fit_MAP, fit_all_concepts, LAMBDA_FORGET
-)
+from structures.structures import Concept, Question, Answer, QuestionAnswer, QuestionType, Area
+from tskirt.tskirt import fit_MAP, fit_all_concepts, LAMBDA_FORGET
 
 
-def make_qas(n, concept_id=0, correct_pattern=None, rng=None):
+def make_qas(n, concept=Concept("", 0), correct_pattern=None, rng=None):
     rng = rng or np.random.default_rng(0)
-    qas = []
+    qas = set()
     for i in range(n):
-        q = Question(concept_id, QuestionType.MULTIPLE_CHOICE, difficulty=rng.uniform(-1, 1))
+        q = Question(concept, QuestionType.MULTIPLE_CHOICE, difficulty=rng.uniform(-1, 1))
         correct = correct_pattern[i] if correct_pattern is not None else bool(rng.integers(0, 2))
-        qas.append(QuestionAnswer(q, Answer(correct), time_since_last=1.0))
+        qas.add(QuestionAnswer(q, Answer(correct), time_since_last=1.0))
     return qas
 
 
@@ -71,10 +67,14 @@ def test_extreme_lambda_forget():
 
 
 def test_zero_response_concept():
-    student = Student(id=1)
-    student.history = make_qas(20, concept_id=10)
+    area = Area(id=1)
+    area.history = make_qas(20, Concept("", 10))
     # No responses at all for concept_id=20 -- fit_all_concepts should simply not
     # produce an entry for it, not crash trying to fit an empty history.
-    theta_by_concept = fit_all_concepts(student)
-    assert 10 in theta_by_concept
-    assert 20 not in theta_by_concept
+    theta_by_concept = fit_all_concepts(area)
+    # Keyed by Concept object (not concept_id) -- Concept has no __eq__/__hash__, so
+    # this checks by .id rather than raw `in`, which would only match the exact same
+    # object instance.
+    fitted_concept_ids = {c.id for c in theta_by_concept}
+    assert 10 in fitted_concept_ids
+    assert 20 not in fitted_concept_ids

@@ -18,12 +18,13 @@ from multiprocessing import Pool
 import os
 
 import scipy as sp
+
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from tskirt import Answer, Concept, Question, QuestionAnswer, QuestionType, fit_MAP
+
+from structures.structures import Concept, Answer, Question, QuestionAnswer, QuestionType
+from tskirt.tskirt import fit_MAP
 
 
 def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
@@ -51,7 +52,7 @@ def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
 
         q_type = rng.choice(list(QuestionType))
         difficulty = rng.uniform(-2, 2)
-        question = Question(concept.id, q_type, difficulty)
+        question = Question(concept, q_type, difficulty)
 
         c = q_type.guess_floor()
         p = c + (1 - c) * sp.special.expit(theta_t - difficulty)
