@@ -22,7 +22,18 @@ class Concept:
 
 class Area: # A student can have different areas of study.
     def __init__(self, id: int):
+        # Deferred (function-local) import, not a top-level one: zpdes.py already imports
+        # Concept from this module, so a top-level `from zpdes.zpdes import ZPDGraph` here
+        # would create a circular import between structures.py and zpdes.py. Importing
+        # inside __init__ instead means this only runs once an Area is actually
+        # constructed, by which point both modules have finished loading.
+        from zpdes.zpdes import ZPDGraph
+
         self.id: int = id
+        # ZPDGraph is now a batch-only constructor (concepts + prerequisites known up
+        # front, validated for cycles before any graph state is built) -- an Area starts
+        # with an empty graph, populated later once its concepts/prerequisites are known.
+        self.graph: ZPDGraph = ZPDGraph([])  # each Area owns its own independent dependency graph
         # "QuestionAnswer" quoted, not imported: importing it here would create a circular
         # import (tskirt.py already imports Concept/Student from this module), and this
         # type hint is documentation only -- nothing in this file actually constructs or
