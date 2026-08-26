@@ -21,23 +21,16 @@ class Concept:
 
 
 class Area: # A student can have different areas of study.
-    def __init__(self, id: int):
+    def __init__(self, id: int) -> None:
         # Deferred (function-local) import, not a top-level one: zpdes.py already imports
         # Concept from this module, so a top-level `from zpdes.zpdes import ZPDGraph` here
         # would create a circular import between structures.py and zpdes.py. Importing
         # inside __init__ instead means this only runs once an Area is actually
         # constructed, by which point both modules have finished loading.
-        from zpdes.zpdes import ZPDGraph
+        from zpdes.zpdes import ZPDES
 
         self.id: int = id
-        # ZPDGraph is now a batch-only constructor (concepts + prerequisites known up
-        # front, validated for cycles before any graph state is built) -- an Area starts
-        # with an empty graph, populated later once its concepts/prerequisites are known.
-        self.graph: ZPDGraph = ZPDGraph([])  # each Area owns its own independent dependency graph
-        # "QuestionAnswer" quoted, not imported: importing it here would create a circular
-        # import (tskirt.py already imports Concept/Student from this module), and this
-        # type hint is documentation only -- nothing in this file actually constructs or
-        # calls QuestionAnswer, so there's nothing to import for real.
+        self.zpdes: ZPDES 
         all_questions: dict[int, dict[QuestionType, set["Question"]]] = {} # all possible questions
         self.history: set["QuestionAnswer"] = set()
         self.theta_by_concept: dict[int, np.ndarray] = {}  # concept_id -> fitted theta array
@@ -70,7 +63,7 @@ class QuestionType(Enum):
       FILL_IN_THE_BLANK = 2
       FLASHCARD = 3
 
-      def guess_floor(self):
+      def guess_floor(self) -> float:
             # Each activity types has a guess_floor parameter (the chance of getting a question
             # right by guessing). In the 3PL-style IRT formula used in `neg_log_likelihood`.
             if self == QuestionType.MULTIPLE_CHOICE:   return 0.25
@@ -81,7 +74,7 @@ class QuestionType(Enum):
 
 
 class Question:
-     def __init__(self, concept: Concept, question_type: QuestionType, difficulty: float):
+     def __init__(self, concept: Concept, question_type: QuestionType, difficulty: float) -> None:
           # concept_id, not a Concept object: Question only needs to know WHICH concept it
           # belongs to, not the concept's full state -- this also breaks what would otherwise
           # be a circular class reference (Concept -> Question -> Concept).
@@ -91,12 +84,12 @@ class Question:
 
 
 class Answer:
-     def __init__(self, correct: bool):
+     def __init__(self, correct: bool) -> None:
           self.correct: bool = correct
 
 
 class QuestionAnswer:
-    def __init__(self, question: Question, answer: Answer, time_since_last: float = 0.0):
+    def __init__(self, question: Question, answer: Answer, time_since_last: float = 0.0) -> None:
         self.question: Question = question
         self.answer: Answer = answer
         self.time_since_last_question: float = time_since_last
