@@ -21,7 +21,7 @@
 # stand in for what would normally come from Phase 2's content pipeline.
 
 import pytest
-from zpdes.zpd import (
+from contentsequencing.zpd import (
     ZPDGraph,
     GraphHasCycleError,
     DanglingPrerequisiteError,

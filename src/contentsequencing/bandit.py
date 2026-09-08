@@ -1,9 +1,9 @@
 REWARD_FUNCTION_NUM_THETAS = 15 # num thetas to be considered in the reward function.
 REWARD_FUNCTION_HALF_LIFE = 5 # half life < k
 SOFTMAX_TEMPERATURE = 0.065
-CONFIDENCE_PENALTY_THRESHOLD = 4 # < 4 exercises needed to impose penalties
-CONFIDENCE_PENALTY_SCALE = 0.025 # absolute per-missing-exercise reward penalty.
+UCB_SCALE = 0.12 # UCB Multiplier
 MASTERY_THETA_THRESHOLD = 1.25 # minimum theta needed to mark a concept as mastered (completed)
+MINIMUM_EXERCISES_THRESHOLD = 3
 
 import numpy as np
 
@@ -17,10 +17,10 @@ WEIGHTS = DECAY ** np.arange(REWARD_FUNCTION_NUM_THETAS)[::-1]
 import scipy as sp
 
 from structures.structures import Concept
-from zpdes.zpd import *
+from contentsequencing.zpd import *
 
 
-class ZPDES:
+class ZPDBandit:
 	def __init__(self, concepts: list[tuple[Concept, int, set[Concept]]]) -> None:
 		self.graph = ZPDGraph(concepts)
 
@@ -36,12 +36,17 @@ class ZPDES:
 		return float(np.sum(weights * diffs) / np.sum(weights))
 
 
-	def confidence_penalty(self, node: ZPDNode):
-		return max(0, CONFIDENCE_PENALTY_THRESHOLD - node.times_exercised) \
-				* CONFIDENCE_PENALTY_SCALE
-	
+	def ucb(self, node: ZPDNode, t: int):
+		if node.times_exercised == 0 or t == 0:
+			raise RuntimeError()
+		return np.sqrt(2 * np.log(t) / node.times_exercised)
+
 
 	def select_concept(self):
+		untried_concepts = {node for node in self.graph.eligible if node.times_exercised == 0}
+		if untried_concepts:
+			return untried_concepts.pop()
+		
 		nodes = list(self.graph.eligible)
 		reward_values = np.array([node.latest_reward for node in nodes])
 		
@@ -56,8 +61,8 @@ class ZPDES:
 					   else self.graph.concept_id_to_node[concept.id]
 
 		node.times_exercised += 1
-		node.latest_reward = self.reward_function(thetas) - self.confidence_penalty(node)
+		node.latest_reward = self.reward_function(thetas) + UCB_SCALE * self.ucb(node, sum(r.times_exercised for r in self.graph.eligible))
 
 		if thetas[-1] >= MASTERY_THETA_THRESHOLD \
-				and node.times_exercised >= CONFIDENCE_PENALTY_THRESHOLD:
+				and node.times_exercised >= MINIMUM_EXERCISES_THRESHOLD:
 			self.graph.complete_concept(node.concept)

@@ -27,10 +27,10 @@ class Area: # A student can have different areas of study.
         # would create a circular import between structures.py and zpdes.py. Importing
         # inside __init__ instead means this only runs once an Area is actually
         # constructed, by which point both modules have finished loading.
-        from zpdes.zpdes import ZPDES
+        from contentsequencing.bandit import ZPDBandit
 
         self.id: int = id
-        self.zpdes: ZPDES 
+        self.zpdes: ZPDBandit 
         all_questions: dict[int, dict[QuestionType, set["Question"]]] = {} # all possible questions
         self.history: set["QuestionAnswer"] = set()
         self.theta_by_concept: dict[int, np.ndarray] = {}  # concept_id -> fitted theta array

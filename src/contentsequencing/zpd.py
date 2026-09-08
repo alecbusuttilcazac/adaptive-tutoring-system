@@ -126,7 +126,7 @@ class ZPDGraph:
 		return self.nodes_by_level.get(level, set())
 
 
-	def complete_concept(self, concept: Concept | int) -> None:
+	def complete_concept(self, concept: Concept | ZPDNode) -> None:
 		def _advance_level():
 			if self._pending_nodes_at_level(self.current_level - LEVEL_FLEXIBILITY_THRESHOLD):
 				raise RuntimeError()
@@ -137,10 +137,9 @@ class ZPDGraph:
 					self.eligible.add(node)
 					self.unreachable.remove(node)
 
-		
 		# convert to the respective node
-		concept_id = concept if isinstance(concept, int) else concept.id
-		node = self.concept_id_to_node[concept_id]
+		node = concept if isinstance(concept, ZPDNode) \
+					   else self.concept_id_to_node[concept.id]
 
 		self.eligible.remove(node) # throws if the concept wasnt even eligible
 		self.completed.add(node)
@@ -154,7 +153,7 @@ class ZPDGraph:
 		# current_level requires current_level itself to be fully cleared
 		while self.eligible_for_level > self.current_level:
 			if self._pending_nodes_at_level(self.current_level):
-				break  # current level has remaining (non-completed) nodes -- can not advance past it
+				break # current level has remaining (non-completed) nodes - can not advance past it
 			_advance_level()
 
 
