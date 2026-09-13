@@ -20,11 +20,14 @@ from structures.structures import Concept
 from contentsequencing.zpd import *
 
 
+# Selects/updates nodes of concepts from the student's ZPD
+# Generally a mixture of ZPDES, softmax and UCB1
 class ZPDBandit:
 	def __init__(self, concepts: list[tuple[Concept, int, set[Concept]]]) -> None:
 		self.graph = ZPDGraph(concepts)
 
-	
+
+	# Does not include UCB bonus
 	@staticmethod
 	def reward_function(thetas: np.ndarray) -> float:
 		thetas = thetas[-(REWARD_FUNCTION_NUM_THETAS + 1):]

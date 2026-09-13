@@ -13,4 +13,4 @@ dependencies = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["structures", "tskirt", "zpdes"]
+packages = ["structures", "tskirt", "contentsequencing"]
