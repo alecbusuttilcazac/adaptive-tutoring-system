@@ -1,11 +1,13 @@
-REWARD_FUNCTION_NUM_THETAS = 15 # num thetas to be considered in the reward function.
-REWARD_FUNCTION_HALF_LIFE = 5 # half life < k
-SOFTMAX_TEMPERATURE = 0.065
-UCB_SCALE = 0.12 # UCB Multiplier
-MASTERY_THETA_THRESHOLD = 1.25 # minimum theta needed to mark a concept as mastered (completed)
-MINIMUM_EXERCISES_THRESHOLD = 3
-
 import numpy as np
+
+from config import (
+	REWARD_FUNCTION_NUM_THETAS,
+	REWARD_FUNCTION_HALF_LIFE,
+	SOFTMAX_TEMPERATURE,
+	UCB_SCALE,
+	MASTERY_THETA,
+	MIN_EXERCISES,
+)
 
 DECAY = 0.5 ** (1 / REWARD_FUNCTION_HALF_LIFE)
 # Stored oldest -> newest (age descending). Sized to REWARD_FUNCTION_NUM_THETAS so it
@@ -51,9 +53,9 @@ class ZPDBandit:
 			return untried_concepts.pop()
 		
 		nodes = list(self.graph.eligible)
-		reward_values = np.array([node.latest_reward for node in nodes])
+		reward_values = np.array([node.latest_reward for node in nodes]) / SOFTMAX_TEMPERATURE
 		
-		probs = sp.special.softmax(reward_values / SOFTMAX_TEMPERATURE)
+		probs = sp.special.softmax(reward_values)
 		idx = np.random.choice(len(nodes), p=probs)
 		
 		return nodes[idx]
@@ -66,6 +68,6 @@ class ZPDBandit:
 		node.times_exercised += 1
 		node.latest_reward = self.reward_function(thetas) + UCB_SCALE * self.ucb(node, sum(r.times_exercised for r in self.graph.eligible))
 
-		if thetas[-1] >= MASTERY_THETA_THRESHOLD \
-				and node.times_exercised >= MINIMUM_EXERCISES_THRESHOLD:
+		if thetas[-1] >= MASTERY_THETA \
+				and node.times_exercised >= MIN_EXERCISES:
 			self.graph.complete_concept(node.concept)
