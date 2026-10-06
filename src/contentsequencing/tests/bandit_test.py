@@ -35,8 +35,8 @@ import pytest
 
 from contentsequencing.bandit import (
     ZPDBandit,
-    MASTERY_THETA_THRESHOLD,
-    MINIMUM_EXERCISES_THRESHOLD,
+    MASTERY_THETA,
+    MIN_EXERCISES,
     REWARD_FUNCTION_NUM_THETAS,
 )
 from structures.structures import Concept
@@ -136,7 +136,7 @@ def test_update_concept_does_not_master_with_too_little_history():
     concept = Concept("A", 1)
     bandit = make_bandit((concept, 1))
 
-    thetas = np.full(2, MASTERY_THETA_THRESHOLD + 1.0)
+    thetas = np.full(2, MASTERY_THETA + 1.0)
     bandit.update_concept(concept, thetas)
 
     node = bandit.graph.concept_id_to_node[concept.id]
@@ -149,8 +149,8 @@ def test_update_concept_masters_once_theta_and_history_both_qualify():
     bandit = make_bandit((concept, 1))
     node = bandit.graph.concept_id_to_node[concept.id]
 
-    thetas = np.full(2, MASTERY_THETA_THRESHOLD + 1.0)
-    for _ in range(MINIMUM_EXERCISES_THRESHOLD):
+    thetas = np.full(2, MASTERY_THETA + 1.0)
+    for _ in range(MIN_EXERCISES):
         bandit.update_concept(concept, thetas)
 
     assert node not in bandit.graph.eligible

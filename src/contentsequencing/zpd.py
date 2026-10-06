@@ -1,8 +1,6 @@
-LEVEL_FLEXIBILITY_THRESHOLD = 1
-
-
 from structures.structures import Concept
 from enum import Enum
+from config import LEVEL_FLEXIBILITY_THRESHOLD
 
 
 class GraphHasCycleError(Exception):

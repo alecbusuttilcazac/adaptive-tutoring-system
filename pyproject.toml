@@ -14,3 +14,4 @@ dependencies = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = ["structures", "tskirt", "contentsequencing"]
+py-modules = ["config"]

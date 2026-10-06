@@ -1,5 +1,6 @@
 main folder.desktop
 .claude/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

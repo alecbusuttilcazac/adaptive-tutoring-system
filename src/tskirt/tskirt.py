@@ -1,12 +1,8 @@
-MIN_DELTA_T = 1e-3
-LAMBDA_FORGET = 0.08
-THETA_BOUND = 10.0
-
-
 import numpy as np
 import scipy as sp
 
 from structures.structures import *
+from config import MIN_DELTA_T, LAMBDA_FORGET, THETA_BOUND
 
 
 def sigma_by_T(T: int) -> float:
@@ -21,34 +17,34 @@ def sigma_by_T(T: int) -> float:
         return 5.52289 * (T ** -0.72580)  # power-law fit from sigma_vs_T.py
 
 
-def responses_for_concept(area: Area, concept: Concept) -> list[QuestionAnswer]:
+def responses_for_concept(area: Area, concept_id: int) -> list[QuestionAnswer]:
     # Return the student's history filtered to only responses for the given concept.
-    return [qa for qa in area.history if qa.question.concept == concept]
+    return [qa for qa in area.history if qa.question.concept_id == concept_id]
 
 
-def fit_all_concepts(area: Area, sigma=None, lambda_forget=LAMBDA_FORGET) -> dict[Concept, np.ndarray]:
+def fit_all_concepts(area: Area, sigma=None, lambda_forget=LAMBDA_FORGET) -> dict[int, np.ndarray]:
     # Concepts are independent (see neg_log_prior/[[project_tskirt_model]]: no
     # cross-concept correlation term), so this is just fit_MAP looped once per
-    # concept -- no joint optimization needed. Pure function, like
+    # concept - no joint optimization needed. Pure function, like
     # responses_for_concept: returns a new dict rather than mutating the area
     # in place, so the caller decides whether/how to store it (e.g.
     # area.theta_by_concept = fit_all_concepts(area)).
-    concepts = {qa.question.concept for qa in area.history}
+    concept_ids = {qa.question.concept_id for qa in area.history}
+    return {concept_id: fit_concept(area, concept_id, sigma, lambda_forget) \
+            for concept_id in concept_ids}
 
-    theta_by_concept = {}
-    for concept in concepts:
-        qas = responses_for_concept(area, concept)
-        result = fit_MAP(qas, sigma=sigma, lambda_forget=lambda_forget)
-        theta_by_concept[concept] = result.x
 
-    return theta_by_concept
+def fit_concept(area: Area, concept_id: int, sigma=None, lambda_forget=LAMBDA_FORGET) -> np.ndarray:
+    qas = responses_for_concept(area, concept_id)
+    result = fit_MAP(qas, sigma=sigma, lambda_forget=lambda_forget)
+    return result.x
 
 
 def qas_to_arrays(qas: list[QuestionAnswer]) -> tuple[np.ndarray, np.ndarray, np.ndarray, 
                                                       np.ndarray]:
     # Convert a list of QuestionAnswer objects into multiple aligned numpy arrays.
     return( 
-        np.array([qa.answer.correct for qa in qas]),
+        np.array([qa.correct for qa in qas]),
         np.array([qa.question.difficulty for qa in qas]),
         np.array([qa.question.question_type.guess_floor() for qa in qas]),
         np.array([qa.time_since_last_question for qa in qas])
@@ -72,17 +68,15 @@ def bernoulli_logli(trues, probs, avg=False):
 		return log_li
 
 
+def response_probability(theta, difficulty, guess_floor):
+    # 3-PL IRT:  p = c + (1 - c__________) * _________sigmoid(theta - difficulty)
+    return guess_floor + (1 - guess_floor) * sp.special.expit(theta - difficulty)
+
+
 def neg_log_likelihood(theta, correct, difficulties, guess_floors):
-    # 3-PL IRT: p = c + (1-c) * sigmoid(theta - difficulty), where:
-	#   p                    Probability of correct response
-    #   c                    guess floor of each response
-	#   sp.special.expit(.)  sigmoid function
-	#   theta                student proficiency at the time of each response
-    #   difficulty           difficulty of each response
-	# The idea is to stretch the sigmoid up to the guess floor.
-    p = guess_floors + (1 - guess_floors) * sp.special.expit(theta - difficulties)
-	
-    # Clipped to avoid log(0).
+    p = response_probability(theta, difficulties, guess_floors)
+
+    # Clip to avoid log(0).
     p = np.clip(p, 1e-16, 1 - 1e-16)
 
     # probabilities give log-likelihood <= 0; negating keeps 0 = best fit

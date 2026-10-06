@@ -23,7 +23,7 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-from structures.structures import Concept, Answer, Question, QuestionAnswer, QuestionType
+from structures.structures import Concept, Question, QuestionAnswer, QuestionType
 from tskirt.tskirt import fit_MAP
 
 
@@ -59,7 +59,7 @@ def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
 
         correct = rng.random() < p
 
-        qas.append(QuestionAnswer(question, Answer(correct), time_since_last=float(gap)))
+        qas.append(QuestionAnswer(question, correct, time_since_last=float(gap)))
     return qas, decayed_theta
 
 
