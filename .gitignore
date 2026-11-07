@@ -1,6 +1,8 @@
-main folder.desktop
-.claude/
+# My project-specific ignores
 .vscode/
+.claude/
+main folder.desktop
+*.old.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

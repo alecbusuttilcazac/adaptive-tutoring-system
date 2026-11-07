@@ -1,5 +1,9 @@
+from utils import *
+from utils.config import config
+
+
 def main():
-	pass
+	seed = set_seed(config["SEED"])
 
 
 if __name__ == "__main__":
