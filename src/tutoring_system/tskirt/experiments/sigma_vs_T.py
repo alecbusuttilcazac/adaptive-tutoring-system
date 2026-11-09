@@ -8,7 +8,7 @@
 # then fit a curve through the resulting (T, best_sigma) pairs.
 #
 # Parallelized across runs within each sigma evaluation via multiprocessing, since each
-# run is fully independent (see fit_all_concepts/simulate_qas -- same independence
+# run is fully independent (see fit_all_kcs/simulate_qas -- same independence
 # argument applies here).
 
 
@@ -24,9 +24,24 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-from tutoring_system.structures.structures import Concept, Question, QuestionAnswer, QuestionType
+from tutoring_system.structures.entities import QuestionAnswer
+from tutoring_system.structures.questions import (
+    CONCRETE_QUESTION_TYPES, Numeric, FillInTheBlank, Flashcard, TrueOrFalse,
+    MultipleChoice, MultipleResponse,
+)
 from tutoring_system.tskirt.tskirt import fit_MAP
 from utils.plotting import *
+
+
+# Only difficulty and guess_floor() matter in this simulation; the content is never graded.
+_DUMMY_QUESTIONS = {
+    Numeric:          lambda cid, d: Numeric(cid, d, 0.0),
+    FillInTheBlank:   lambda cid, d: FillInTheBlank(cid, d, ""),
+    Flashcard:        lambda cid, d: Flashcard(cid, d),
+    TrueOrFalse:      lambda cid, d: TrueOrFalse(cid, d, True),
+    MultipleChoice:   lambda cid, d: MultipleChoice(cid, d, ["a", "b", "c", "d"], 0),
+    MultipleResponse: lambda cid, d: MultipleResponse(cid, d, ["a", "b", "c", "d"], {0}),
+}
 
 
 def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
@@ -40,7 +55,6 @@ def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
     if gaps is None:
         gaps = np.ones(len(theta_true))
 
-    concept = Concept(name="simulated_concept", id=0)
     qas = []
 
     decayed_theta = np.empty(len(theta_true))
@@ -52,11 +66,11 @@ def simulate_qas(theta_true, rng, gaps=None, lambda_forget=0.0):
     for i, gap in enumerate(gaps):
         theta_t = decayed_theta[i]
 
-        q_type = rng.choice(list(QuestionType))
+        question_class = CONCRETE_QUESTION_TYPES[rng.integers(len(CONCRETE_QUESTION_TYPES))]
         difficulty = rng.uniform(-2, 2)
-        question = Question(concept, q_type, q_type.answer_type()(), difficulty)
+        question = _DUMMY_QUESTIONS[question_class](0, difficulty)  # kc id 0
 
-        c = q_type.guess_floor()
+        c = question.guess_floor()
         p = c + (1 - c) * sp.special.expit(theta_t - difficulty)
 
         correct = rng.random() < p

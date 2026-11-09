@@ -3,7 +3,7 @@
 #   2. All-correct / all-incorrect streaks -- does fit_MAP still converge cleanly?
 #   3. Extreme sigma (near-0, very large) -- graceful degradation, no nan/inf?
 #   4. Extreme lambda_forget (very large decay) -- same question
-#   5. A concept with zero responses in fit_all_concepts -- does anything assume nonzero data?
+#   5. A kc with zero responses in fit_all_kcs -- does anything assume nonzero data?
 #
 # Each case just checks: does it run without raising, does it converge (where applicable),
 # and is the result free of nan/inf. This is a stress-test sanity pass, not a correctness
@@ -11,16 +11,17 @@
 
 import numpy as np
 
-from tutoring_system.structures.structures import Concept, Question, QuestionAnswer, QuestionType, Area
-from tutoring_system.tskirt.tskirt import fit_MAP, fit_all_concepts
+from tutoring_system.structures.entities import KC, QuestionAnswer, Area
+from tutoring_system.structures.questions import MultipleChoice
+from tutoring_system.tskirt.tskirt import fit_MAP, fit_all_kcs
 from utils.config import config
 
 
-def make_qas(n, concept=Concept("", 0), correct_pattern=None, rng=None):
+def make_qas(n, kc=KC("", 0), correct_pattern=None, rng=None):
     rng = rng or np.random.default_rng(0)
     qas = []
     for i in range(n):
-        q = Question(concept, QuestionType.MULTIPLE_CHOICE, correct_answer=0, difficulty=rng.uniform(-1, 1))
+        q = MultipleChoice(kc.id, rng.uniform(-1, 1), ["a", "b", "c", "d"], 0)
         correct = correct_pattern[i] if correct_pattern is not None else bool(rng.integers(0, 2))
         qas.append(QuestionAnswer(q, correct, time_since_last=1.0))
     return qas
@@ -67,12 +68,12 @@ def test_extreme_lambda_forget():
     assert_converged(result)
 
 
-def test_zero_response_concept():
+def test_zero_response_kc():
     area = Area(id=1)
-    area.history = make_qas(20, Concept("", 10))
-    # No responses at all for concept_id=20 -- fit_all_concepts should simply not
+    area.history = make_qas(20, KC("", 10))
+    # No responses at all for kc_id=20 -- fit_all_kcs should simply not
     # produce an entry for it, not crash trying to fit an empty history.
-    theta_by_concept = fit_all_concepts(area)
-    # Keyed directly by concept_id.
-    assert 10 in theta_by_concept
-    assert 20 not in theta_by_concept
+    theta_by_kc = fit_all_kcs(area)
+    # Keyed directly by kc_id.
+    assert 10 in theta_by_kc
+    assert 20 not in theta_by_kc

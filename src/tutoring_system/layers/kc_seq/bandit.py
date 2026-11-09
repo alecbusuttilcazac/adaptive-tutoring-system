@@ -11,15 +11,15 @@ WEIGHTS = DECAY ** np.arange(config["REWARD_FUNCTION_NUM_THETAS"])[::-1]
 
 import scipy as sp
 
-from tutoring_system.structures.structures import Concept
+from tutoring_system.structures.entities import KC
 from tutoring_system.layers.kc_seq.zpd import *
 
 
-# Selects/updates nodes of concepts from the student's ZPD
+# Selects/updates nodes of kcs from the student's ZPD
 # Generally a mixture of ZPDES, softmax and UCB1
 class ZPDBandit:
-	def __init__(self, concepts: list[tuple[Concept, int, set[Concept]]]) -> None:
-		self.graph = ZPDGraph(concepts)
+	def __init__(self, kcs: list[tuple[KC, int, set[KC]]]) -> None:
+		self.graph = ZPDGraph(kcs)
 
 
 	# Does not include UCB bonus
@@ -40,12 +40,14 @@ class ZPDBandit:
 		return np.sqrt(2 * np.log(t) / node.times_exercised)
 
 
-	def select_concept(self):
-		untried_concepts = {node for node in self.graph.eligible if node.times_exercised == 0}
-		if untried_concepts:
-			return untried_concepts.pop()
+	def select_kc(self):
+		# Sorted by kc id: set iteration order differs between processes, which would make
+		# the choices below irreproducible under a fixed seed.
+		nodes = sorted(self.graph.eligible, key=lambda node: node.kc.id)
+		untried_kcs = [node for node in nodes if node.times_exercised == 0]
+		if untried_kcs:
+			return untried_kcs[0]
 		
-		nodes = list(self.graph.eligible)
 		reward_values = np.array([node.latest_reward for node in nodes]) / config["SOFTMAX_TEMPERATURE"]
 		
 		probs = sp.special.softmax(reward_values)
@@ -54,13 +56,13 @@ class ZPDBandit:
 		return nodes[idx]
 
 
-	def update_concept(self, concept: Concept | ZPDNode, thetas: np.ndarray): # UCB-style (absolute)
-		node = concept if isinstance(concept, ZPDNode) \
-					   else self.graph.concept_id_to_node[concept.id]
+	def update_kc(self, kc: KC | ZPDNode, thetas: np.ndarray): # UCB-style (absolute)
+		node = kc if isinstance(kc, ZPDNode) \
+					   else self.graph.kc_id_to_node[kc.id]
 
 		node.times_exercised += 1
 		node.latest_reward = self.reward_function(thetas) + config["UCB_SCALE"] * self.ucb(node, sum(r.times_exercised for r in self.graph.eligible))
 
 		if thetas[-1] >= config["MASTERY_THETA"] \
 				and node.times_exercised >= config["MIN_EXERCISES"]:
-			self.graph.complete_concept(node.concept)
+			self.graph.complete_kc(node.kc)

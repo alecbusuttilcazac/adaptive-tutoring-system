@@ -4,13 +4,17 @@ SEED: null  # null = random seed
 
 
 # structures/structures.py
-NUMERIC_ANSWER_TOLERANCE: 1.0e-6  # max abs difference for a NUMERIC answer to count as correct
 FUZZY_MATCH_THRESHOLD: 0.85  # min similarity for a FILL_IN_THE_BLANK answer to count as correct
+BANNED_OPTION_PHRASES:  # lowercase; a choice question option containing any of these is rejected
+  - "all of the above"
+  - "none of the above"
+  - "all of these"
+  - "none of these"
 
 
 # [0] tskirt.py
 MIN_DELTA_T: 1.0e-3
-LAMBDA_FORGET: 0.08
+LAMBDA_FORGET: 0.05
 THETA_BOUND: 10.0
 
 
@@ -22,7 +26,7 @@ REWARD_FUNCTION_NUM_THETAS: 15  # num thetas to be considered in the reward func
 REWARD_FUNCTION_HALF_LIFE: 5  # half life < k
 SOFTMAX_TEMPERATURE: 0.065
 UCB_SCALE: 0.12  # UCB Multiplier
-MASTERY_THETA: 1.25  # minimum theta needed to mark a concept as mastered (completed)
+MASTERY_THETA: 1.25  # minimum theta needed to mark a kc as mastered (completed)
 MIN_EXERCISES: 3
 
 
@@ -31,9 +35,9 @@ SIGMOID_STEEPNESS: 3.0  # steepness of the sigmoid function
 BATCH_SIZE: 4  # number of questions to select before updating the corresponding thetas
 BATCH_THETA_SPLIT_FRACTION: 0.5  # fraction of a batch (from its start) assigned theta_before; the
     # remainder is assigned theta_after, once the batch's refit produces it (delayed)
-FAMILIARITY_THRESHOLD: -1  # threshold for a concept to be considered "familiar" (for question type selection)
+FAMILIARITY_THRESHOLD: -1  # threshold for a kc to be considered "familiar" (for question type selection)
 # Unrelated to FAMILIARITY_THRESHOLD above - these are seed values for theta_before on a
-# concept's first-ever batch, picked from the student's self-reported familiarity tier.
+# kc's first-ever batch, picked from the student's self-reported familiarity tier.
 FAMILIARITY_UNFAMILIAR: -2.0
 FAMILIARITY_SOME: -1.0
 FAMILIARITY_CONFIDENT: 0.0
@@ -44,3 +48,13 @@ NORM_SOFTMAX_TEMPERATURE: 0.20  # lower sharpens the softmax inside normalise_we
 NORM_SCALE_SEARCH_ITERATIONS: 100  # bisection steps - float64 precision is reached well before this
 NORM_MAX_DOUBLINGS: 2000  # backstop against an unbounded t_high search if the feasibility check above is ever bypassed
 MIN_RESPONSES_FOR_TYPE_SIGNAL: 7  # minimum number of responses for a type to be considered trusted
+
+
+# simulation/student.py  (assumptions of the simulated student, to be stated in the dissertation)
+SIM_LEARNING_RATE: 0.05  # theta gained per response at the start (shrinks as theta nears SIM_THETA_CAP)
+SIM_THETA_CAP: 3.0  # proficiency ceiling the simulated learning curve saturates towards
+SIM_GENERATION_BONUS: 0.5  # extra learning on generative questions: gain * (1 + bonus)
+SIM_FORGET_RATE: 0.005  # per time unit, pulls a kc's theta back toward its starting level between practices
+SIM_TYPE_SKILL_SD: 0.5  # sd of the per-question-type skill offsets drawn for each student
+SIM_FAMILIARITY_NOISE_SD: 0.5  # sd of the noise added to the familiarity tier to get the true starting theta
+SIM_RESPONSE_DURATION: 1.0  # time units per response (matches the unit gaps sigma_by_T was calibrated on)

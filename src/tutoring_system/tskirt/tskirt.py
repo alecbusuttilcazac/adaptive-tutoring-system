@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 
-from tutoring_system.structures.structures import *
+from tutoring_system.structures.entities import *
 from utils.config import config
 
 
@@ -17,25 +17,25 @@ def sigma_by_T(T: int) -> float:
         return 5.52289 * (T ** -0.72580)  # power-law fit from sigma_vs_T.py
 
 
-def responses_for_concept(area: Area, concept_id: int) -> list[QuestionAnswer]:
-    # Return the student's history filtered to only responses for the given concept.
-    return [qa for qa in area.history if qa.question.concept_id == concept_id]
+def responses_for_kc(area: Area, kc_id: int) -> list[QuestionAnswer]:
+    # Return the student's history filtered to only responses for the given kc.
+    return [qa for qa in area.history if qa.question.kc_id == kc_id]
 
 
-def fit_all_concepts(area: Area, sigma=None, lambda_forget=config["LAMBDA_FORGET"]) -> dict[int, np.ndarray]:
-    # Concepts are independent (see neg_log_prior/[[project_tskirt_model]]: no
-    # cross-concept correlation term), so this is just fit_MAP looped once per
-    # concept - no joint optimization needed. Pure function, like
-    # responses_for_concept: returns a new dict rather than mutating the area
+def fit_all_kcs(area: Area, sigma=None, lambda_forget=config["LAMBDA_FORGET"]) -> dict[int, np.ndarray]:
+    # KCs are independent (see neg_log_prior/[[project_tskirt_model]]: no
+    # cross-kc correlation term), so this is just fit_MAP looped once per
+    # kc - no joint optimization needed. Pure function, like
+    # responses_for_kc: returns a new dict rather than mutating the area
     # in place, so the caller decides whether/how to store it (e.g.
-    # area.theta_by_concept = fit_all_concepts(area)).
-    concept_ids = {qa.question.concept_id for qa in area.history}
-    return {concept_id: fit_concept(area, concept_id, sigma, lambda_forget) \
-            for concept_id in concept_ids}
+    # area.theta_by_kc = fit_all_kcs(area)).
+    kc_ids = {qa.question.kc_id for qa in area.history}
+    return {kc_id: fit_kc(area, kc_id, sigma, lambda_forget) \
+            for kc_id in kc_ids}
 
 
-def fit_concept(area: Area, concept_id: int, sigma=None, lambda_forget=config["LAMBDA_FORGET"]) -> np.ndarray:
-    qas = responses_for_concept(area, concept_id)
+def fit_kc(area: Area, kc_id: int, sigma=None, lambda_forget=config["LAMBDA_FORGET"]) -> np.ndarray:
+    qas = responses_for_kc(area, kc_id)
     result = fit_MAP(qas, sigma=sigma, lambda_forget=lambda_forget)
     return result.x
 
@@ -46,7 +46,7 @@ def qas_to_arrays(qas: list[QuestionAnswer]) -> tuple[np.ndarray, np.ndarray, np
     return( 
         np.array([qa.correct for qa in qas]),
         np.array([qa.question.difficulty for qa in qas]),
-        np.array([qa.question.question_type.guess_floor() for qa in qas]),
+        np.array([qa.question.guess_floor() for qa in qas]),
         np.array([qa.time_since_last_question for qa in qas])
     )
 

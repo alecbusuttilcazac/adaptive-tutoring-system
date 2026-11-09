@@ -2,13 +2,18 @@ import scipy as sp
 import numpy as np
 
 from utils.config import config
-from tutoring_system.structures.structures import Area, QuestionType, QuestionTypeCategory, QuestionAnswer, Concept
+from tutoring_system.structures.entities import Area, QuestionAnswer, KC
+from tutoring_system.structures.questions import (
+    Question, GenerativeQuestion, NonGenerativeQuestion, types_of,
+)
 from tutoring_system.tskirt.tskirt import response_probability
 
 
+_CATEGORIES = (GenerativeQuestion, NonGenerativeQuestion)
+
 # Early sanity check for normalise_weights(): constraint is n*TYPE_MIN_WEIGHT <= 1 <=
 # n*TYPE_MAX_WEIGHT; normalise_weights() re-checks this against its actual input length.
-_MAX_CATEGORY_SIZE = max(len(category.types()) for category in QuestionTypeCategory)
+_MAX_CATEGORY_SIZE = max(len(types_of(category)) for category in _CATEGORIES)
 
 if _MAX_CATEGORY_SIZE * config["TYPE_MIN_WEIGHT"] > 1 + config["FLOAT_FEASIBILITY_TOLERANCE"] \
 		or _MAX_CATEGORY_SIZE * config["TYPE_MAX_WEIGHT"] < 1 - config["FLOAT_FEASIBILITY_TOLERANCE"]:
@@ -20,24 +25,24 @@ if _MAX_CATEGORY_SIZE * config["TYPE_MIN_WEIGHT"] > 1 + config["FLOAT_FEASIBILIT
 	)
 
 
-if config["BATCH_SIZE"] == 1:
-	BATCH_SPLIT_INDEX = config["BATCH_SIZE"] 
-			# past the only valid index (0) - the question is assigned to theta_before
-else:
-	BATCH_SPLIT_INDEX = round(config["BATCH_SIZE"] * config["BATCH_THETA_SPLIT_FRACTION"]) 
-			# index of the first question in a batch to be assigned theta_after
+def batch_split_index() -> int:
+	# Index of the first question in a batch to be scored with theta_after. Read from the config
+	# on every call so a sweep can change the batch settings inside one process.
+	if config["BATCH_SIZE"] == 1:
+		return config["BATCH_SIZE"]  # past the only valid index (0): scored with theta_before
+	return round(config["BATCH_SIZE"] * config["BATCH_THETA_SPLIT_FRACTION"])
 
 
-def _theta_to_category(theta: float) -> QuestionTypeCategory:
-	return QuestionTypeCategory.NON_GENERATIVE \
+def _theta_to_category(theta: float) -> type[Question]:
+	return NonGenerativeQuestion \
 			if np.random.random() > sp.special.expit(config["SIGMOID_STEEPNESS"] * theta) \
-			else QuestionTypeCategory.GENERATIVE
+			else GenerativeQuestion
 
 
 def _score_individual_response(area: Area, theta: float, ans: QuestionAnswer) -> None:
 	score = ans.correct - response_probability(theta, ans.question.difficulty,
-	                                           ans.question.question_type.guess_floor())
-	area.scores_by_type[ans.question.question_type].add(score)
+	                                           ans.question.guess_floor())
+	area.scores_by_type[type(ans.question)].add(score)
 
 
 def score_batch_responses(area: Area, theta: float, answers: list[QuestionAnswer],
@@ -49,7 +54,7 @@ def score_batch_responses(area: Area, theta: float, answers: list[QuestionAnswer
 
 
 def _needs_theta_after(batch_position: int) -> bool:
-	return batch_position >= BATCH_SPLIT_INDEX
+	return batch_position >= batch_split_index()
 
 
 def _advance_batch_position(area: Area) -> bool:
@@ -141,11 +146,14 @@ def normalise_weights(weights: list[float]) -> list[float]:
 	return [min(max(w * t_high, config["TYPE_MIN_WEIGHT"]), config["TYPE_MAX_WEIGHT"]) for w in weights]
 
 
-def sample_question_type(theta: float, area: Area, concept: Concept) -> QuestionType:
+def sample_question_type(theta: float, area: Area, kc: KC) -> type[Question]:
 	# get all the possible types and then get each type's weight (unless mean is unreliable)
-	possible_types = list(_theta_to_category(theta).types() & concept.allowed_question_types)
+	# sorted: a set of classes iterates in a different order in each process, which would make
+	# the seeded choice below irreproducible
+	possible_types = sorted(types_of(_theta_to_category(theta)) & kc.allowed_question_types,
+	                        key=lambda question_class: question_class.__name__)
 	if len(possible_types) == 0:
-		raise ValueError(f"Concept {concept.id} ('{concept.name!r}') does not allow for at least " 
+		raise ValueError(f"KC {kc.id} ('{kc.name!r}') does not allow for at least " 
 		                 f"one question type in each category.")
 	
 	weights = [

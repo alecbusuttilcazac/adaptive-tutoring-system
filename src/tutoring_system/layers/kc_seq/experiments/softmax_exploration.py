@@ -1,5 +1,5 @@
 # Exploration script (not a pytest suite -- no assertions) for understanding how
-# ZPDBandit.select_concept's softmax distribution behaves across reward scenarios,
+# ZPDBandit.select_kc's softmax distribution behaves across reward scenarios,
 # UCB confidence bonuses, and temperatures/scales. Run directly:
 #   python -m tutoring_system.layers.kc_seq.experiments.softmax_exploration
 #
@@ -7,8 +7,8 @@
 # regardless of reward gaps (defeats the point of reward-weighted selection), too low
 # collapses toward pure argmax (no exploration of lower-reward eligible nodes).
 #
-# Also useful for tuning UCB_SCALE: select_concept doesn't feed raw reward into softmax
-# on its own -- update_concept combines it with a UCB confidence bonus first
+# Also useful for tuning UCB_SCALE: select_kc doesn't feed raw reward into softmax
+# on its own -- update_kc combines it with a UCB confidence bonus first
 # (reward + UCB_SCALE * ucb_width). Too large a UCB_SCALE lets the exploration bonus
 # swamp the actual learning-progress signal (selection becomes "least-tried wins"
 # regardless of reward); too small makes the bonus meaningless noise.
@@ -47,7 +47,7 @@ TEMPERATURES = [0.5, 0.1, config["SOFTMAX_TEMPERATURE"], 0.02, 0.01]
 # times_exercised count (all currently-eligible nodes' exercise counts sum to t).
 # "lightly tried outsider" is the key case this mechanism targets: a node with a
 # strong reward but very little evidence behind it (see the earlier "be a bit weary
-# of concepts where only 1 exercise has been taken" discussion).
+# of kcs where only 1 exercise has been taken" discussion).
 COMBINED_SCENARIOS = {
     "one lightly-tried, rest well-tried": {
         "rewards": np.array([0.13, -0.01, -0.04, 0.05]),
